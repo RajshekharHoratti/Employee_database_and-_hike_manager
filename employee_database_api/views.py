@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 
 
 
-COMPANY_STARTED_ON_YEAR = "2015"
+COMPANY_STARTED_ON_YEAR = 2015
 
 
 DEPARTMENTS_ELIGIBLE_FOR_HIKE = ["Customer Service", "Development", "Finance", "Human Resources", "Sales"]
-TITLES_ELIGIBLE_FOR_HIKE = ["Senior Engineer", "Staff", "Engineer", "Senior Staff", "Assistant Engineer", "Technique Leader"]
+TITLES_ELIGIBLE_FOR_HIKE = ["Senior Engineer", "Staff", "Engineer", "Senior Staff", "Assistant Engineer", "Technique Lead"]
 
 TitlesAndSalaries = [
     {
@@ -26,7 +26,7 @@ TitlesAndSalaries = [
     },
     {
         "title": "ENGINEER",
-        "salary": 700000
+        "salary": 900000
     },
     {
         "title": "SENIOR ENGINEER",
@@ -52,55 +52,66 @@ class EmployeeHire(APIView):
                 check_employee = Employees.objects.filter(emp_no=employee['employee_id'])
                 if check_employee.count() > 0:
                     print("Employee Exists")
+
                 else:
+                    print(employee['employee_id'])
                     for title in TitlesAndSalaries:
                         if title['title'] == employee['title'].upper():
-                            if title['salary'] == employee['salary']['salary_to_date']:
+                            if title['salary'] == employee['salary']:
                                 birth_date = datetime.strptime(employee['birth_date'], '%Y-%m-%d').date()
                                 hire_date = datetime.strptime(employee['hire_date'], '%Y-%m-%d').date()
-                                from_date = datetime.strptime(employee['salary']['from_date'], '%Y-%m-%d').date()
+                                from_date = datetime.strptime(employee['salaryDates']['from_date'], '%Y-%m-%d').date()
+                                to_date = datetime.strptime(employee['salaryDates']['to_date'], '%Y-%m-%d').date()
                                 current_date = datetime.now().date()
                                 employee_age = (current_date - birth_date) // timedelta(days=365.2425)
 
                                 hire_year = hire_date.year
 
-                                if str(hire_year) == COMPANY_STARTED_ON_YEAR:
+                                if hire_year >= int(COMPANY_STARTED_ON_YEAR) and hire_date <= current_date and from_date < current_date:
                                     if employee_age >= 18 and employee_age < 60:
 
-                                        add_employee = Employees(emp_no=employee['employee_id'], birth_date=birth_date,
-                                                                 first_name=employee['first_name'],
-                                                                 last_name=employee['last_name'], gender=employee['gender'],
-                                                                 hire_date=hire_date)
-                                        add_employee.save()
-                                        check_department = Departments.objects.get(dept_no=employee['department'])
-                                        add_dept_emp = DeptEmp(emp_no=add_employee, dept_no=check_department, from_date=from_date,
-                                                               to_date=current_date)
-                                        add_dept_emp.save()
+                                        if employee['gender'].upper() in ['M', 'F']:
+                                            add_employee = Employees(emp_no=employee['employee_id'], birth_date=birth_date,
+                                                                     first_name=employee['first_name'],
+                                                                     last_name=employee['last_name'], gender=employee['gender'].upper(),
+                                                                     hire_date=hire_date)
+                                            add_employee.save()
+                                            check_department = Departments.objects.get(dept_no=employee['department'])
+                                            add_dept_emp = DeptEmp(emp_no=add_employee, dept_no=check_department,
+                                                                   from_date=from_date,
+                                                                   to_date=to_date)
+                                            add_dept_emp.save()
 
-                                        add_salaries = Salaries(emp_no=add_employee, salary=employee['salary']['salary_to_date'],
-                                                                from_date=from_date,
-                                                                to_date=current_date)
-                                        add_salaries.save()
+                                            add_salaries = Salaries(emp_no=add_employee, salary=employee['salary'],
+                                                                    from_date=from_date,
+                                                                    to_date=to_date)
+                                            add_salaries.save()
 
-                                        add_title = Titles(emp_no=add_employee,
-                                                           title=employee['title'],
-                                                           from_date=from_date,
-                                                           to_date=current_date)
-                                        add_title.save()
-                                        success_employees.append(employee['employee_id'])
+                                            add_title = Titles(emp_no=add_employee,
+                                                               title=employee['title'],
+                                                               from_date=from_date,
+                                                               to_date=to_date)
+                                            add_title.save()
+                                            success_employees.append(employee['employee_id'])
+                                        else:
+                                            print("invalid Gender")
+
                                     else:
                                         print("Invalid Age")
+
                                 else:
                                     print("Invalid Hire Year")
+
                             else:
                                 print("Invalid Salary")
+
                         else:
                             print("Invalid Title")
+
             except:
                 print("Some Internal Server Error")
 
         response_message = {
-            "message": "Success",
             "success_employees": success_employees,
         }
         return JsonResponse(response_message, safe=False, status=200)
@@ -109,7 +120,7 @@ class EmployeeHire(APIView):
 class EmployeeEligibleForHike(APIView):
     def get(self, request):
         try:
-            employee_id = request.GET.get('employee_id')
+            employee_id = int(request.GET.get('employee_id'))
             employeeDetails = Employees.objects.get(emp_no=employee_id)
             if employeeDetails:
                 deptEmpDetails = DeptEmp.objects.get(emp_no=employeeDetails).dept_no
@@ -136,9 +147,9 @@ class EmployeeEligibleForHike(APIView):
                                         }
                                         return JsonResponse(response_message, safe=False, status=200)
                                     else:
-                                        if employeeDetails.gender == "M" and titleDetails.title == "Technique Leader":
+                                        if employeeDetails.gender == "M" and titleDetails.title == "Technique Lead":
                                             response_message = {
-                                                "message": "Gender or Title Condition Failed",
+                                                "message": "Gender And Title Condition Failed",
                                                 "hike": False
                                             }
                                             return JsonResponse(response_message, safe=False, status=200)
